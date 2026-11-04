@@ -77,8 +77,11 @@ describe("Bike shop API", () => {
     const all = await request(app.getHttpServer())
       .get("/customers")
       .expect(200);
+    expect(all.body.totalCount).toBe(4);
     expect(
-      (all.body as CustomerResponseDto[]).map((item) => item.lastName),
+      (all.body.customers as CustomerResponseDto[]).map(
+        (item) => item.lastName,
+      ),
     ).toEqual(["Bernard", "Durand", "Martin", "Moreau"]);
     await request(app.getHttpServer())
       .patch(`/customers/${customer.id}`)
@@ -100,6 +103,30 @@ describe("Bike shop API", () => {
     await request(app.getHttpServer())
       .get(`/customers/${customer.id}`)
       .expect(404);
+  });
+
+  it("paginates the customer list", async () => {
+    const page = await request(app.getHttpServer())
+      .get("/customers?page=2&limit=2")
+      .expect(200);
+    expect(page.body.totalCount).toBe(3);
+    expect(
+      (page.body.customers as CustomerResponseDto[]).map(
+        (item) => item.lastName,
+      ),
+    ).toEqual(["Martin"]);
+    await request(app.getHttpServer())
+      .get("/customers?page=5")
+      .expect(200, { totalCount: 3, customers: [] });
+    for (const query of [
+      "page=0",
+      "page=-1",
+      "page=1.5",
+      "page=abc",
+      "limit=0",
+      "limit=51",
+    ])
+      await request(app.getHttpServer()).get(`/customers?${query}`).expect(400);
   });
 
   it("enforces email uniqueness on creation and update", async () => {
